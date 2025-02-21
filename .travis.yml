@@ -3,7 +3,7 @@ git:
   quiet: true
 branches:
   only:
-    - master
+    - ci-build
 language: c
 cache: ccache
 compiler:
