@@ -22,5 +22,6 @@ install:
     libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf
     llvm
 script:
+  - make olddefconfig
   - make -j$(nproc) O='./build'
   - ls
