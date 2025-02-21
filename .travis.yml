@@ -13,6 +13,7 @@ before_install:
   - sudo apt -y upgrade
   - mkdir build
 install:
+  - sudo apt-get install build-essential
   - >-
     sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu jammy main
     restricted universe multiverse"
@@ -20,6 +21,6 @@ install:
     sudo apt-get -y install libncurses-dev gawk flex bison openssl
     libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf
     llvm
-  - sudo apt build-dep linux
 script:
   - make -j$(nproc) -O=./build
+  - ls
