@@ -12,6 +12,9 @@ edac_core-y	:= edac_mc.o edac_device.o edac_mc_sysfs.o
 edac_core-y	+= edac_module.o edac_device_sysfs.o wq.o
 
 edac_core-$(CONFIG_EDAC_DEBUG)		+= debugfs.o
+edac_core-$(CONFIG_EDAC_SCRUB)		+= scrub.o
+edac_core-$(CONFIG_EDAC_ECS)		+= ecs.o
+edac_core-$(CONFIG_EDAC_MEM_REPAIR)	+= mem_repair.o
 
 ifdef CONFIG_PCI
 edac_core-y	+= edac_pci.o edac_pci_sysfs.o
@@ -85,3 +88,5 @@ obj-$(CONFIG_EDAC_NPCM)			+= npcm_edac.o
 obj-$(CONFIG_EDAC_ZYNQMP)		+= zynqmp_edac.o
 obj-$(CONFIG_EDAC_VERSAL)		+= versal_edac.o
 obj-$(CONFIG_EDAC_LOONGSON)		+= loongson_edac.o
+obj-$(CONFIG_EDAC_VERSALNET)		+= versalnet_edac.o
+obj-$(CONFIG_EDAC_CORTEX_A72)		+= a72_edac.o

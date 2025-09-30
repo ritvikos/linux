@@ -402,10 +402,10 @@ static struct inode *dlmfs_get_inode(struct inode *parent,
  * File creation. Allocate an inode, and we're done..
  */
 /* SMP-safe */
-static int dlmfs_mkdir(struct mnt_idmap * idmap,
-		       struct inode * dir,
-		       struct dentry * dentry,
-		       umode_t mode)
+static struct dentry *dlmfs_mkdir(struct mnt_idmap * idmap,
+				  struct inode * dir,
+				  struct dentry * dentry,
+				  umode_t mode)
 {
 	int status;
 	struct inode *inode = NULL;
@@ -448,7 +448,7 @@ static int dlmfs_mkdir(struct mnt_idmap * idmap,
 bail:
 	if (status < 0)
 		iput(inode);
-	return status;
+	return ERR_PTR(status);
 }
 
 static int dlmfs_create(struct mnt_idmap *idmap,
@@ -547,7 +547,7 @@ static const struct super_operations dlmfs_ops = {
 	.alloc_inode	= dlmfs_alloc_inode,
 	.free_inode	= dlmfs_free_inode,
 	.evict_inode	= dlmfs_evict_inode,
-	.drop_inode	= generic_delete_inode,
+	.drop_inode	= inode_just_drop,
 };
 
 static const struct inode_operations dlmfs_file_inode_operations = {
@@ -595,7 +595,8 @@ static int __init init_dlmfs_fs(void)
 	}
 	cleanup_inode = 1;
 
-	user_dlm_worker = alloc_workqueue("user_dlm", WQ_MEM_RECLAIM, 0);
+	user_dlm_worker = alloc_workqueue("user_dlm",
+					  WQ_MEM_RECLAIM | WQ_PERCPU, 0);
 	if (!user_dlm_worker) {
 		status = -ENOMEM;
 		goto bail;

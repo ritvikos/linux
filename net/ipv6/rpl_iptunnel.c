@@ -129,13 +129,13 @@ static int rpl_do_srh_inline(struct sk_buff *skb, const struct rpl_lwt *rlwt,
 			     struct dst_entry *cache_dst)
 {
 	struct ipv6_rpl_sr_hdr *isrh, *csrh;
-	const struct ipv6hdr *oldhdr;
+	struct ipv6hdr oldhdr;
 	struct ipv6hdr *hdr;
 	unsigned char *buf;
 	size_t hdrlen;
 	int err;
 
-	oldhdr = ipv6_hdr(skb);
+	memcpy(&oldhdr, ipv6_hdr(skb), sizeof(oldhdr));
 
 	buf = kcalloc(struct_size(srh, segments.addr, srh->segments_left), 2, GFP_ATOMIC);
 	if (!buf)
@@ -147,7 +147,7 @@ static int rpl_do_srh_inline(struct sk_buff *skb, const struct rpl_lwt *rlwt,
 	memcpy(isrh, srh, sizeof(*isrh));
 	memcpy(isrh->rpl_segaddr, &srh->rpl_segaddr[1],
 	       (srh->segments_left - 1) * 16);
-	isrh->rpl_segaddr[srh->segments_left - 1] = oldhdr->daddr;
+	isrh->rpl_segaddr[srh->segments_left - 1] = oldhdr.daddr;
 
 	ipv6_rpl_srh_compress(csrh, isrh, &srh->rpl_segaddr[0],
 			      isrh->segments_left - 1);
@@ -169,7 +169,7 @@ static int rpl_do_srh_inline(struct sk_buff *skb, const struct rpl_lwt *rlwt,
 	skb_mac_header_rebuild(skb);
 
 	hdr = ipv6_hdr(skb);
-	memmove(hdr, oldhdr, sizeof(*hdr));
+	memmove(hdr, &oldhdr, sizeof(*hdr));
 	isrh = (void *)hdr + sizeof(*hdr);
 	memcpy(isrh, csrh, hdrlen);
 
@@ -242,7 +242,7 @@ static int rpl_output(struct net *net, struct sock *sk, struct sk_buff *skb)
 			local_bh_enable();
 		}
 
-		err = skb_cow_head(skb, LL_RESERVED_SPACE(dst->dev));
+		err = skb_cow_head(skb, LL_RESERVED_SPACE(dst_dev(dst)));
 		if (unlikely(err))
 			goto drop;
 	}
@@ -262,10 +262,18 @@ static int rpl_input(struct sk_buff *skb)
 {
 	struct dst_entry *orig_dst = skb_dst(skb);
 	struct dst_entry *dst = NULL;
+	struct lwtunnel_state *lwtst;
 	struct rpl_lwt *rlwt;
 	int err;
 
-	rlwt = rpl_lwt_lwtunnel(orig_dst->lwtstate);
+	/* We cannot dereference "orig_dst" once ip6_route_input() or
+	 * skb_dst_drop() is called. However, in order to detect a dst loop, we
+	 * need the address of its lwtstate. So, save the address of lwtstate
+	 * now and use it later as a comparison.
+	 */
+	lwtst = orig_dst->lwtstate;
+
+	rlwt = rpl_lwt_lwtunnel(lwtst);
 
 	local_bh_disable();
 	dst = dst_cache_get(&rlwt->cache);
@@ -280,14 +288,16 @@ static int rpl_input(struct sk_buff *skb)
 	if (!dst) {
 		ip6_route_input(skb);
 		dst = skb_dst(skb);
-		if (!dst->error) {
+
+		/* cache only if we don't create a dst reference loop */
+		if (!dst->error && lwtst != dst->lwtstate) {
 			local_bh_disable();
 			dst_cache_set_ip6(&rlwt->cache, dst,
 					  &ipv6_hdr(skb)->saddr);
 			local_bh_enable();
 		}
 
-		err = skb_cow_head(skb, LL_RESERVED_SPACE(dst->dev));
+		err = skb_cow_head(skb, LL_RESERVED_SPACE(dst_dev(dst)));
 		if (unlikely(err))
 			goto drop;
 	} else {
